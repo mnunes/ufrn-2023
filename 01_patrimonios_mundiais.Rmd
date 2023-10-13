@@ -1,0 +1,240 @@
+---
+title: "Patrimônios Mundiais da Unesco"
+subtitle: "Criando Mapas no R"
+author: "Seu Nome"
+output:
+  html_document:
+    toc: false
+    number_sections: true
+    theme: sandstone
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r preparacao, include=FALSE}
+knitr::opts_chunk$set(
+  # opcao para que apenas chunks novos ou alterados sejam executados a cada compilacao
+  cache = FALSE,
+  # centraliza as figuras na página
+  fig.align = "center"
+  )
+```
+
+
+
+# Pacotes Necessários
+
+Execute os comandos presentes no arquivo `setup.R`, presente na pasta `scripts`, para instalar os pacotes que serão necessários durante o minicurso. O tempo de execução do comando vai variar dependendo da instalação do `R` em seu computador e da sua conexão à internet. O script vai localizar quais pacotes já estão instalados em sua máquina e irá baixar apenas aqueles que estiverem faltando.
+
+
+# R Markdown
+
+Este é um documento R Markdown. Markdown é uma linguagem de _markup_ para formatar textos para formatos como HTML, PDF e Word, dentre outros. Para mais detalhes sobre o formato, visite o link <http://rmarkdown.rstudio.com>.
+
+Ao clicar no botão **Knit** acima ou utilizar o atalho **Ctrl+Shift+K**, será gerado um documento que juntará texto regular, código do `R` e os respectivos _outputs_ destes códigos, unindo tudo em um mesmo documento.
+
+
+
+## Instruções Gerais
+
+A criação de mapas no `R` pode ser um pouco lenta. Por isso, na linha 17 deste arquivo está uma opção identificada como `cache = TRUE`. Com isso, apenas trechos de códigos novos ou alterados serão executados a cada compilação do documento. Caso haja algum problema com a atualização dos resultados no arquivo html gerado, apague as pastas `01_patrimonios_mundiais_cache` e `01_patrimonios_mundiais_files` para que um novo arquivo seja compilado completamente a partir do zero.
+
+
+
+
+# Visualizando o Mapa-Múndi
+
+O pacote `ggplot2` permite extrair um mapa-múndi quase completo (sem lagos) a partir do pacote `maps`. Este mapa já possui a divisão entre os países bem definida e pode ser acessado através da função `maps_data`. \
+
+Há outros diversos pacotes diferentes para plotar mapas no `R`. O próprio pacote `ggplot2` disponibiliza mapas em sua instalação. Entretanto, são opções limitadas, que não permitem muitas personalizações. Por isso, utilizaremos os pacotes `giscoR` e `geobr` neste minicurso.
+
+A primeira tarefa que faremos é visualizar o mapa-múndi. Os pacotes necessários para isso estão carregados a seguir:
+
+
+```{r}
+library(tidyverse)
+library(giscoR)
+library(sf)
+```
+
+O comando `gisco_get_countries` do pacote `giscoR` extrai suas informações do site [GISCO - the Geographic Information System of the COmmission](https://ec.europa.eu/eurostat/web/gisco), responsável por satisfazer as necessidades de informação geográfica da Comissão Europeia em 3 níveis: a União Europeia, os seus países membros e as suas regiões. Felizmente, também são disponibilizadas informações para outras regiões do globo.
+
+Para obter informações geográficos a respeito do mundo inteiro, basta rodar a função `gisco_get_countries` sem argumentos:
+
+```{r}
+mundo <- gisco_get_countries()
+```
+
+Assim, o objeto `mundo` possui informações sobre as fronteiras dos países e podemos usar a função `geom_sf` do pacote `ggplot2` para visualizar estas informações.
+
+```{r}
+ggplot(mundo) +
+  geom_sf()
+```
+
+Sendo uma geometria do pacote `ggplot2`, a plotagem em camadas continua sendo um diferencial para o fluxo de trabalho com mapas. Além disso, muitos dos argumentos padrão que estamos acostumados (`colour`, `fill`, `aes` e similares) funcionam bem com ela. Por exemplo, podemos pintar os países de azul e alterar a cor do fundo do gráfico para azul:
+
+
+```{r}
+ggplot(mundo) +
+  geom_sf(fill = "white") +
+  theme(panel.background = element_rect(fill = 'powderblue'))
+```
+
+
+O pacote `giscoR` permite que plotemos gráficos apenas de regiões limitadas. A seguir, veremos mapas da África e da Itália plotados em sequência.
+
+
+```{r}
+africa <- gisco_get_countries(region = "Africa")
+
+# mapa padrao
+
+ggplot(africa) +
+  geom_sf()
+
+# zoom
+
+ggplot(africa) +
+  geom_sf(fill = "white") + 
+  coord_sf(xlim = c(-35, 60), 
+           ylim = c(-40, 40))
+```
+
+
+
+```{r}
+italia <- gisco_get_countries(country = "Italy")
+
+ggplot(italia) +
+  geom_sf(fill = "white")
+
+# regios italianas
+
+italia <- gisco_get_nuts(country = "Italy", nuts_level = 2)
+
+ggplot(italia) +
+  geom_sf(fill = "white")
+```
+
+A classificação NUTS (Nomenclatura de Unidades Territoriais Estatísticas, em inglês) é um sistema hierárquico de divisão do território económico da União Europeia e do Reino Unido com a finalidade de coletar, desenvolver e compatibilizar formas de apresentar estatísticas europeias regionais. São definidos três níveis de NUTS:
+
+* NUTS 1: principais regiões socioeconômicas
+* NUTS 2: regiões básicas para a aplicação de políticas regionais
+* NUTS 3: pequenas regiões para diagnósticos específicos
+
+Por ser uma iniciativa europeia e bretã, os níveis NUTS estão definidos apenas para os países destas regiões. Caso queiramos mapas mais detalhados de outras regiões do planeta, teremos que procurar outras fontes para isto. Em geral, cada país ou região dependerá de um pacote específico do `R` ou de arquivos do tipo _[shapefile](https://pt.wikipedia.org/wiki/Shapefile)_.
+
+
+
+# Plotando Dados em um Mapa
+
+Iremos trabalhar com a lista de [Patrimônios da Humanidade](https://pt.wikipedia.org/wiki/Patrim%C3%B3nio_Mundial) definida pela UNESCO. São 1154 locais distribuídos ao redor do mundo. Os dados a serem utilizados estão na pasta `dados`.
+
+```{r}
+library(readxl)
+
+unesco <- read_excel(path = "dados/whc-sites-2021.xls")
+
+glimpse(unesco)
+```
+
+O dicionário de dados é o seguinte:
+
+* `unique_number`: identificador único do sítio
+* `id_no`: identificador único do sítio
+* `rev_bis`: sufixo usado pela UNESCO para o identificador
+* `name_en`: nome do sítio, em inglês
+* `name_fr`: nome do sítio, em francês
+* `short_description_en`: descrição do sítio, em inglês
+* `short_description_fr`: descrição do sítio, em francês
+* `justification_en`: justificativa para a escolha do sítio, em inglês
+* `justification_fr`: justificativa para a escolha do sítio, em francês
+* `date_inscribed`: ano de entrada do sítio na lista
+* `secondary_dates`: data secundária
+* `danger`: variável indicando se é um local em perigo de destruição (0 para não, 1 para sim)
+* `date_end`: ano de saída do sítio da classificação de local em perigo
+* `danger_list`: período em que o sítio esteve em perigo
+* `longitude`: longitude do sítio
+* `latitude`: latitude do sítio
+* `area_hectares`: área do sítio em hectares
+* `C1`: variável indicando se o sítio foi escolhido de acordo com o critério cultural I (0 para não, 1 para sim)
+* `C2`: variável indicando se o sítio foi escolhido de acordo com o critério cultural II (0 para não, 1 para sim)
+* `C3`: variável indicando se o sítio foi escolhido de acordo com o critério cultural III (0 para não, 1 para sim)
+* `C4`: variável indicando se o sítio foi escolhido de acordo com o critério cultural IV (0 para não, 1 para sim)
+* `C5`: variável indicando se o sítio foi escolhido de acordo com o critério cultural V (0 para não, 1 para sim)
+* `C6`: variável indicando se o sítio foi escolhido de acordo com o critério cultural VI (0 para não, 1 para sim)
+* `N7`: variável indicando se o sítio foi escolhido de acordo com o critério natural VII (0 para não, 1 para sim)
+* `N8`: variável indicando se o sítio foi escolhido de acordo com o critério natural VIII (0 para não, 1 para sim)
+* `N9`: variável indicando se o sítio foi escolhido de acordo com o critério natural IX (0 para não, 1 para sim)
+* `N10`: variável indicando se o sítio foi escolhido de acordo com o critério natural X (0 para não, 1 para sim)
+* `criteria_txt`: lista em texto de todos os critérios para a escolha do sítio
+* `category`: tipo do sítio (cultural, natural ou misto)
+* `category_short`: abreviação do tipo do sítio
+* `states_name_en`: nome do país, em inglês
+* `states_name_fr`: nome do país, em francês
+* `region_en`: nome da região, em inglês
+* `region_fr`: nome da região, em francês
+* `iso_code`: código do país no padrão ISO
+* `udnp_code`: código do país no padrão da ONU
+* `transboundary`: variável indicando se o sítio está localizado em mais de um país (0 para não, 1 para sim)
+
+Neste primeiro momento, estamos interessados nas variáveis `longitude`, `longitude` e `category`. Com elas, iremos plotar a localização de cada sítio considerado como patrimônio histórico da humanidade na lista da UNESCO e identicar seus tipos.
+
+```{r}
+mapa_mundi <- 
+  ggplot(mundo) +
+  geom_sf(fill = "white") +
+  theme(panel.background = element_rect(fill = 'powderblue'))
+
+mapa_mundi +
+  geom_point(data = unesco, aes(x = longitude, y = latitude))
+```
+
+Como são `r nrow(unesco)` pontos no conjunto de dados, a visualização fica um pouco prejudicada. Vemos uma concentração grande de pontos na Europa, mas não temos a real noção de quão concentrados estes pontos são em relação às outras partes do mundo,
+
+Uma possível solução para isso é utilizar a função `stat_density_2d`, que cria uma estimativa da função densidade bivariada dos dados observados, levando em conta a ocorrência deles em cada local do mapa:
+
+```{r}
+mapa_mundi +
+  stat_density_2d(data = unesco, aes(x = longitude, y = latitude, fill = after_stat(level)), 
+                  geom = "polygon",
+                  alpha = 0.2) +
+  guides(fill = "none") + 
+  scale_fill_viridis_c(option = "A")
+```
+
+Para identificar onde estão localizados cada tipo de patrimômio (cultural, natural ou misto), basta informar que os pontos serão coloridos de acordo com a variável `category`:
+
+```{r}
+mapa_mundi +
+  geom_point(data = unesco, aes(x = longitude, y = latitude, colour = category)) +
+  scale_colour_viridis_d()
+```
+
+
+
+
+
+
+
+
+
+# Exercícios
+
+1. Crie uma visualização identificando cada local em que está um patrimônio da humanidade na América Latina e Caribe.
+
+
+
+2. Adicione cores aos pontos do gráfico anterior para identificar cada categoria de patrimônio da humanidade.
+
+
+
+3. Separe o primeiro gráfico em três painéis, um para cada categoria de patrimônio da humanidade.
+
+
+
+4. Encontre os sítios em perigo de destruição no mundo e plote-os em um mapa adequado. Qual é o continente com o maior número deles?
+
+
+

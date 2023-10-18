@@ -21,7 +21,7 @@ Este minicurso é uma introdução prática à criação de mapas utilizando a l
 
 - R: [https://cran.r-project.org/](https://cran.r-project.org/)
 - RStudio: [https://www.rstudio.com/products/rstudio/download/](https://www.rstudio.com/products/rstudio/download/)
-- Alguns pacotes do R devem ser instalados ou rodando o comando `source("https://raw.githubusercontent.com/mnunes/shiny_ufes/master/scripts/setup.R")` no seu RStudio ou clicando em [https://raw.githubusercontent.com/mnunes/shiny_ufes/master/scripts/setup.R](https://raw.githubusercontent.com/mnunes/shiny_ufes/master/scripts/setup.R) e copiando e colando seu conteúdo dentro do RStudio
+- Alguns pacotes do R devem ser instalados ou rodando o comando `source("https://raw.githubusercontent.com/mnunes/ufrn-2023/main/scripts/setup.R")` no seu RStudio ou clicando em [https://raw.githubusercontent.com/mnunes/ufrn-2023/main/scripts/setup.R](https://raw.githubusercontent.com/mnunes/ufrn-2023/main/scripts/setup.R) e copiando e colando seu conteúdo dentro do RStudio
 
 
 ## Como Utilizar este Repositório

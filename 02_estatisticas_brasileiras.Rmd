@@ -62,7 +62,7 @@ cidades <- read_municipality(year = 2020, showProgress = FALSE)
 ```
 
 
-Vamos onferir o conteúdo do objeto `cidades`:
+Vamos conferir o conteúdo do objeto `cidades`:
 
 ```{r}
 head(cidades)
@@ -147,7 +147,6 @@ head(cidades)
 Agora podemos criar um mapa colorindo as cidades de acordo com a sua densidade populacional:
 
 
-
 ```{r}
 ggplot() +
   geom_sf(data = cidades, aes(fill = densidade))
@@ -214,6 +213,10 @@ Agora juntamos os mapas com os dados, como fizemos antes:
 
 
 ```{r}
+names(uf)
+
+names(densidade_uf)
+
 uf <- 
   uf |> 
   rename(uf = name_state) |> 
@@ -264,12 +267,12 @@ Repetindo o código de antes, obtemos agora o resultado esperado:
 
 
 ```{r}
-uf <- 
+uf_densidade <- 
   uf |> 
   left_join(densidade_uf, by = "uf")
 
 ggplot() +
-  geom_sf(data = uf, aes(fill = densidade_uf), colour = NA) +
+  geom_sf(data = uf_densidade, aes(fill = densidade_uf), colour = NA) +
   scale_fill_gradient(trans = "log10")
 ```
 
@@ -288,7 +291,7 @@ Não é necessário baixar os mapas de cada cidade brasileira quando eestivermos
 
 
 ```{r}
-rn <- read_municipality(code_muni = "RN", year = 2020)
+rn <- read_municipality(code_muni = "RN", year = 2020, showProgress = FALSE)
 
 rn <- 
   rn |> 
@@ -329,12 +332,9 @@ ggplot() +
 1. Utilize o arquivo `dados/pib_per_capita.csv` para criar um mapa do Brasil com as UFs coloridas de acordo com o PIB per capita.
 
 
-2. Crie um mapa com a densidade populacional das cidades do Nordeste.
+2. Crie um mapa com as cidades do Nordeste coloridas de acordo com a densidade populacional. É necessário criar 9 objetos com os mapas de cada estado individualmente e juntá-los em seguida.
 
 
 3. Plote um mapa do Brasil com a localização dos patrimônios mundiais naturais localizados no país.
-
-
-
 
 

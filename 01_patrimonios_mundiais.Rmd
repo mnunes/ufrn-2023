@@ -14,7 +14,7 @@ editor_options:
 ```{r preparacao, include=FALSE}
 knitr::opts_chunk$set(
   # opcao para que apenas chunks novos ou alterados sejam executados a cada compilacao
-  cache = FALSE,
+  cache = TRUE,
   # centraliza as figuras na página
   fig.align = "center"
   )

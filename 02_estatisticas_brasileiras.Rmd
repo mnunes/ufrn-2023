@@ -1,7 +1,7 @@
 ---
 title: "Estatísticas Brasileiras"
 subtitle: "Criando Mais Mapas no R"
-author: "Seu Nome"
+author: "Marcus Nunes"
 output:
   html_document:
     toc: false

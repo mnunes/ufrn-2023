@@ -1,0 +1,398 @@
+---
+title: "Estatísticas Brasileiras"
+subtitle: "Criando Mais Mapas no R"
+author: "Seu Nome"
+output:
+  html_document:
+    toc: false
+    number_sections: true
+    theme: sandstone
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  # opcao para que apenas chunks novos ou alterados sejam executados a cada compilacao
+  cache = TRUE,
+  # centraliza as figuras na página
+  fig.align = "center"
+  )
+```
+
+
+# Pacotes Necessários
+
+Execute os comandos presentes no arquivo `setup.R`, presente na pasta `scripts`, para instalar os pacotes que serão necessários durante o minicurso. O tempo de execução do comando vai variar dependendo da instalação do `R` em seu computador e da sua conexão à internet. O script vai localizar quais pacotes já estão instalados em sua máquina e irá baixar apenas aqueles que estiverem faltando.
+
+
+# R Markdown
+
+Este é um documento R Markdown. Markdown é uma linguagem de _markup_ para formatar textos para formatos como HTML, PDF e Word, dentre outros. Para mais detalhes sobre o formato, visite o link <http://rmarkdown.rstudio.com>.
+
+Ao clicar no botão **Knit** acima ou utilizar o atalho **Ctrl+Shift+K**, será gerado um documento que juntará texto regular, código do `R` e os respectivos _outputs_ destes códigos, unindo tudo em um mesmo documento.
+
+
+
+## Instruções Gerais
+
+A criação de mapas no `R` pode ser um pouco lenta. Por isso, na linha 17 deste arquivo está uma opção identificada como `cache = TRUE`. Com isso, apenas trechos de códigos novos ou alterados serão executados a cada compilação do documento. Caso haja algum problema com a atualização dos resultados no arquivo html gerado, apague as pastas `02_estatisticas_brasileiras_cache` e `02_estatisticas_brasileiras_files` para que um novo arquivo seja compilado completamente a partir do zero.
+
+
+
+# País Inteiro
+
+## Mapas com Cidades
+
+Como o pacote `giscoR` não apresenta dados detalhados o suficiente para todos os países do mundo, pois é focado na União Europeia, precisamos procurar uma alternativa para plotar dados do Brasil. Vamos usar o pacote `geobr` para isso.
+
+
+```{r}
+library(tidyverse)
+theme_set(theme_void())
+library(geobr)
+```
+
+
+A função `read_municipality` importa os dados dos mapas em nível municipal. Ou seja, com ela obtemos o mapa do Brasil com os limites entre cada cidade:
+
+
+```{r}
+cidades <- read_municipality(year = 2020, showProgress = FALSE)
+```
+
+
+Vamos conferir o conteúdo do objeto `cidades`:
+
+```{r}
+head(cidades)
+```
+
+São diversas informações:
+
+* `code_muni`: código do município no IBGE
+* `name_muni`: nome do município
+* `code_state`: código da UF do município no IBGE
+* `abbrev_state`: sigla da UF
+* `name_state`: nome da UF
+* `code_region`: código da região do país
+* `name_region`: nome da região do país
+* `geom`: mapa para cada municipio
+
+A lógica para plotar o mapa do Brasil é a mesma que utilizamos para plotar o mapa múndi:
+
+```{r}
+ggplot(cidades) +
+  geom_sf(fill = "white")
+```
+
+Mas se quisermos podemos plotar estatísticas em cima desde mapa. Em particular, vamos ler o conteúdo do arquivo `brasil.csv`:
+
+```{r}
+brasil <- read_csv(file = "dados/brasil.csv")
+```
+
+Estas são as suas primeiras linhas:
+
+```{r}
+head(brasil)
+```
+
+Cada coluna apresenta uma informação diferente:
+
+* `codigo_ibge`: código do município no IBGE
+* `municipio`: nome do município
+* `uf`: nome da UF
+* `area`: área do município (km^2)
+* `populacao`: quantidade de habitantes do município
+* `densidade`: densidade populacional do município (habitantes/km^2)
+
+Queremos colorir o mapa do Brasil de acordo com a densidade populacional de cada município. Para isso, precisamos juntar em um mesmo objeto os mapas e as informações que queremos plotar. Como as cidades não estão na mesma ordem nos objetos `municipios` e `brasil`, vamos utilizar a função `left_join` para nos auxiliar nisso. Ela é uma função que permite relacionar dois conjuntos de dados a partir de uma chave comum a eles.
+
+Tome por exemplo os conjuntos de dados abaixo. Ambos possuem as mesmas pessoas, mas com informações diferentes sobre elas.
+
+
+```{r}
+telefones <- data.frame(nome = c("João", "Maria", "Pedro", "Roberta"),
+                        telefone = c("84 99999-1000", "84 99999-2000", "84 99999-3000", "84 99999-4000"))
+
+emails <- data.frame(nome = c("Maria", "Roberta", "João", "Pedro"),
+                     email = c("m@ufrn.br", "roberta@gmail.com", "joao@ufrn.br", "pedro@hotmail.com"))
+
+telefones
+emails
+```
+
+Note que `nome` é uma chave comum a ambos conjuntos de dados. Embora a ordem dos nomes não seja a mesma, a função `left_join` consegue relacionar ambos os conjuntos de dados e identificar quais informações devem ser atribuídas a cada pessoa:
+
+```{r}
+telefones |> 
+  left_join(emails, by = "nome")
+```
+
+Iremos utilizar esta mesma lógica para unir os conjuntos `cidades` e `brasil`, para colocarmos as informações de ambos bancos de dados em um mesmo objeto. Neste caso, iremos sobrescrever o conteúdo de `cidades`. Como chave, utilizaremos o código do IBGE, para evitar problemas com acentuação (Mossoró vs Mossoro) ou grafia (Assu vs Açu) dos nomes dos municípios.
+
+O resultado é o seguinte:
+
+```{r}
+cidades <- 
+  cidades |> 
+  rename(codigo_ibge = code_muni) |> 
+  left_join(brasil, by = "codigo_ibge")
+
+head(cidades)
+```
+
+
+Agora podemos criar um mapa colorindo as cidades de acordo com a sua densidade populacional:
+
+
+```{r}
+ggplot() +
+  geom_sf(data = cidades, aes(fill = densidade))
+```
+
+Remover a cor dos limites municipais melhora um pouco a visualização:
+
+
+```{r}
+ggplot() +
+  geom_sf(data = cidades, aes(fill = densidade), colour = NA)
+```
+
+Mas parece que nossa escala de cores não está funcionando bem. Há alguns pontos mais claros no mapa, como São Pualo, Rio de Janeiro e Belo Horizonte, mas não é poséivel distinguir bem as outras cidades.
+
+O histograma da densidade populacional nos ajuda compreender isso:
+
+```{r}
+ggplot(cidades, aes(x = densidade)) +
+  geom_histogram()
+```
+
+Uma forma de reduzir a desiguldade que vemos é aplicando uma transformação logarítmica, que além de reduzir a amplitude dos dados, os deixam simétricos:
+
+```{r}
+ggplot(cidades, aes(x = densidade)) +
+  geom_histogram() +
+  scale_x_log10()
+```
+
+É trivial aplicar esta transformação no mapa:
+
+```{r}
+ggplot() +
+  geom_sf(data = cidades, aes(fill = densidade), colour = NA) +
+  scale_fill_gradient(trans = "log10")
+```
+
+Agora sim está mais fácil perceber a maior densidade populacional no litoral do Brasil, enquanto o interior é menos densamente populado.
+
+
+
+## Mapas com Unidades Federativas
+
+A função `read_state` funciona de maneira análoga à função `read_municipality`, exceto que só lê os mapas com divisões estaduais:
+
+```{r}
+uf <- read_state(year = 2020, showProgress = FALSE)
+```
+
+Como só possuímos os dados de densidade populacional para os municípios, precisamos agrupar estes dados por UF para termos a densidade populacional de cada Unidade Federativa do país.
+
+```{r}
+densidade_uf <-
+  brasil |> 
+  group_by(uf) |> 
+  summarise(populacao_uf = sum(populacao),
+            area_uf = sum(area)) |> 
+  mutate(densidade_uf = populacao_uf/area_uf)
+```
+
+
+Agora juntamos os mapas com os dados, como fizemos antes:
+
+
+```{r}
+names(uf)
+
+names(densidade_uf)
+
+uf <- 
+  uf |> 
+  rename(uf = name_state) |> 
+  left_join(densidade_uf, by = "uf")
+```
+
+
+E aí é só plotar o resultado:
+
+```{r}
+ggplot() +
+  geom_sf(data = uf, aes(fill = densidade_uf), colour = NA) +
+  scale_fill_gradient(trans = "log10")
+```
+
+Note que algumas UFs não possuem dados plotados a seu respeito. Isto provavelmente se deve a diferentes grafias dos nomes dos estados nos objetos `uf` e `densidade_uf`:
+
+```{r}
+data.frame(sort(uf$uf), sort(densidade_uf$uf))
+```
+
+Era isso mesmo. Temos Amazônas com um acento incorreto e alguns estados com capitalizações não usuais em seus nomes. Isto precisa ser corrigido manualmente:
+
+
+```{r}
+uf <- 
+  read_state(year = 2020, 
+             showProgress = FALSE
+  ) |> 
+  rename(uf = name_state) |> 
+  mutate(uf = case_when(
+    uf == "Amazônas" ~ "Amazonas",
+    uf == "Mato Grosso Do Sul" ~ "Mato Grosso do Sul",
+    uf == "Rio De Janeiro" ~ "Rio de Janeiro",
+    uf == "Rio Grande Do Norte" ~ "Rio Grande do Norte",
+    uf == "Rio Grande Do Sul" ~ "Rio Grande do Sul",
+    .default = uf
+  ))
+```
+
+Agora sim temos os estados com os mesmos nomes em cada objeto:
+
+```{r}
+data.frame(sort(uf$uf), sort(densidade_uf$uf))
+```
+
+Repetindo o código de antes, obtemos agora o resultado esperado:
+
+
+```{r}
+uf_densidade <- 
+  uf |> 
+  left_join(densidade_uf, by = "uf")
+
+ggplot() +
+  geom_sf(data = uf_densidade, aes(fill = densidade_uf), colour = NA) +
+  scale_fill_gradient(trans = "log10")
+```
+
+
+
+
+
+
+
+
+# Mapas sobre o Rio Grande do Norte
+
+## Estado Inteiro
+
+Não é necessário baixar os mapas de cada cidade brasileira quando eestivermos interessados em apenas um estado da nação. O argumento `code_muni` nos auxilia com isso, caso queiramos plotar o mapa da densidade populacional do Rio Grande do Norte:
+
+
+```{r}
+rn <- read_municipality(code_muni = "RN", year = 2020, showProgress = FALSE)
+
+rn <- 
+  rn |> 
+  rename(codigo_ibge = code_muni) |> 
+  left_join(brasil, by = "codigo_ibge")
+
+ggplot() +
+  geom_sf(data = rn, aes(fill = densidade), colour = NA) +
+  scale_fill_gradient(trans = "log10")
+```
+
+
+
+
+
+## Natal
+
+Também é possível plotar dados apenas de uma cidade em particular. Para Natal, a função `read_neighborhood` plota cada bairro da cidade separadamente:
+
+
+```{r}
+natal <- read_neighborhood(year = 2010, showProgress = FALSE)
+
+natal <- 
+  natal |> 
+  filter(name_muni == "Natal")
+
+ggplot() +
+  geom_sf(data = natal)
+```
+
+
+
+
+
+# Exercícios
+
+1. Utilize o arquivo `dados/pib_per_capita.csv` para criar um mapa do Brasil com as UFs coloridas de acordo com o PIB per capita.
+
+```{r}
+pib_per_capita <- 
+  read_csv(file = "dados/pib_per_capita.csv")
+
+uf_pib_per_capita <- 
+  uf |> 
+  left_join(pib_per_capita, by = "uf")
+
+ggplot() +
+  geom_sf(data = uf_pib_per_capita, aes(fill = pib_per_capita)) +
+  scale_fill_gradient(trans = "log10")
+```
+
+
+
+2. Crie um mapa com as cidades do Nordeste coloridas de acordo com a densidade populacional. É necessário criar 9 objetos com os mapas de cada estado individualmente e juntá-los em seguida.
+
+```{r}
+# leitura dos mapas
+
+uf_nordeste <- c("MA", "PI", "CE", "RN", "PB", "PE", "AL", "SE", "BA")
+
+nordeste <- read_municipality(code_muni = "MA", year = 2020, showProgress = FALSE)
+
+for(j in uf_nordeste[-1]){
+  nordeste <- bind_rows(nordeste,
+                        read_municipality(code_muni = j, year = 2020))
+}
+
+# juntando mapas e dados
+
+nordeste <- 
+  nordeste |> 
+  rename(codigo_ibge = code_muni) |> 
+  left_join(brasil, by = "codigo_ibge")
+
+ggplot() +
+  geom_sf(data = nordeste, aes(fill = densidade)) +
+  scale_fill_gradient(trans = "log10")
+```
+
+
+
+3. Plote um mapa do Brasil com a localização dos patrimônios mundiais naturais localizados no país.
+
+
+```{r}
+library(readxl)
+
+unesco <- read_excel(path = "dados/whc-sites-2021.xls")
+
+unesco_br_naturais <- 
+  unesco |> 
+  filter(states_name_en == "Brazil") |> 
+  filter(category == "Natural")
+
+ggplot() +
+  geom_sf(data = cidades) +
+  geom_point(data = unesco_br_naturais, 
+             aes(x = longitude, y = latitude))
+```
+
+
+
+
